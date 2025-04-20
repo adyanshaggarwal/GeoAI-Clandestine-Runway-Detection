@@ -1,1 +1,2 @@
-
+## Brief
+Ok so we just use this platform to **test and later push our main code** here, for any changes i suggest adding ur work into a **personal folder with a short .md file** to explain what u did, just so we can keep track thanks!
