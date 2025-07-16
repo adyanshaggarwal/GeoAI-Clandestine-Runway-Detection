@@ -13,4 +13,4 @@ Ok so we just use this platform to **test and later push our main code** here, f
 - if there is no runway just click download without marking any dots
 - the binary masks will be stored in tiff and png in the respective local folders where ur app.py is in `generated_png` and `generated_tiffs`
 
-####Note: Images with prefix 0 imply no airstrip, prefix 1 implies airstrip is present
+#### Note: Images with prefix 0 imply no airstrip, prefix 1 implies airstrip is present
