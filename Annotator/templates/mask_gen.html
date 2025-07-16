@@ -1,205 +1,326 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Runway Annotator</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      background: #f0f0f0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-    #container {
-      background: #fff;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-      max-width: 900px;
-      width: 100%;
-    }
-    .canvas-group {
-      display: flex;
-      gap: 20px;
-      justify-content: center;
-      margin: 15px 0;
-    }
-    canvas {
-      border: 1px solid #ccc;
-    }
-    button {
-      margin: 5px;
-      padding: 8px 14px;
-      border: none;
-      background: #3a86ff;
-      color: white;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #2f6cd6;
-    }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Runway Annotator</title>
+    <!-- Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Using a modern font */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom style for the file input button */
+        .file-input-button {
+            cursor: pointer;
+            display: inline-block;
+            text-align: center;
+        }
+        /* Hide the default file input */
+        #folderInput {
+            display: none;
+        }
+        /* Ensure canvas scales correctly within its container */
+        canvas {
+            width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+            background-color: #f3f4f6; /* A light gray background for the canvas */
+        }
+    </style>
 </head>
-<body>
-<div id="container">
-  <h2>Runway Binary Mask Annotator</h2>
-  <input type="file" id="folderInput" webkitdirectory multiple><br>
+<body class="bg-gray-100 text-gray-800 flex items-center justify-center min-h-screen p-4">
 
-  <div class="canvas-group">
-    <canvas id="canvas"></canvas>
-    <canvas id="previewCanvas"></canvas>
-  </div>
+<div id="container" class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg w-full max-w-6xl">
+    <!-- Header Section -->
+    <div class="text-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-900">Runway Binary Mask Annotator</h1>
+        <p class="text-gray-600 mt-1">Upload a folder of PNG images to start annotating.</p>
+    </div>
 
-  <div id="info">Click two points to define a runway line.</div>
+    <!-- File Input -->
+    <div class="flex justify-center mb-6">
+        <label for="folderInput" class="file-input-button bg-blue-600 text-white font-semibold py-2 px-5 rounded-lg shadow-md hover:bg-blue-700 transition-all duration-300">
+            Select Image Folder
+        </label>
+        <input type="file" id="folderInput" webkitdirectory multiple>
+    </div>
 
-  <button onclick="prevImage()">⏪ Prev</button>
-  <button onclick="nextImage()">Next ⏩</button>
-  <button onclick="clearPoints()">Clear</button>
-  <button onclick="downloadMask()">Download Mask</button>
+    <!-- Main Content: Canvases -->
+    <div id="canvas-container" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4 hidden">
+        <!-- Original Image Canvas -->
+        <div class="flex flex-col items-center">
+            <h3 class="text-lg font-semibold mb-2">Original Image</h3>
+            <div class="w-full max-w-[512px] border border-gray-200 rounded-lg shadow-sm p-2">
+                <canvas id="canvas"></canvas>
+            </div>
+        </div>
+        <!-- Mask Preview Canvas -->
+        <div class="flex flex-col items-center">
+            <h3 class="text-lg font-semibold mb-2">Mask Preview</h3>
+             <div class="w-full max-w-[512px] border border-gray-200 rounded-lg shadow-sm p-2">
+                <canvas id="previewCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info and Controls -->
+    <div id="controls-container" class="hidden">
+        <div id="info" class="text-center text-gray-700 my-4 bg-gray-50 p-3 rounded-lg">
+            Click two points on the original image to define a runway line.
+        </div>
+
+        <div class="flex flex-wrap justify-center items-center gap-3">
+            <button onclick="prevImage()" class="bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors">⏪ Prev</button>
+            <button onclick="clearPoints()" class="bg-yellow-500 text-white font-medium py-2 px-4 rounded-lg hover:bg-yellow-600 transition-colors">Clear Points</button>
+            <button onclick="downloadMask()" class="bg-green-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-700 transition-colors text-lg">Save Mask</button>
+            <button onclick="nextImage()" class="bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors">Next ⏩</button>
+        </div>
+    </div>
+    
+    <!-- Toast Notification for saving -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-gray-900 text-white py-2 px-4 rounded-lg shadow-xl transition-opacity duration-300 opacity-0">
+        Mask saved successfully!
+    </div>
 </div>
 
 <script>
-let canvas = document.getElementById('canvas');
-let ctx = canvas.getContext('2d');
-let previewCanvas = document.getElementById('previewCanvas');
-let previewCtx = previewCanvas.getContext('2d');
-let folderInput = document.getElementById('folderInput');
-let info = document.getElementById('info');
+    // DOM element references
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const previewCanvas = document.getElementById('previewCanvas');
+    const previewCtx = previewCanvas.getContext('2d');
+    const folderInput = document.getElementById('folderInput');
+    const info = document.getElementById('info');
+    const toast = document.getElementById('toast');
+    const canvasContainer = document.getElementById('canvas-container');
+    const controlsContainer = document.getElementById('controls-container');
 
-let images = [];
-let currentIndex = 0;
-let points = [];
+    // State variables
+    let images = [];
+    let currentIndex = 0;
+    let points = [];
 
-folderInput.addEventListener('change', () => {
-  images = Array.from(folderInput.files).filter(f => f.name.endsWith('.png'));
-  currentIndex = 0;
-  loadImage();
-});
+    // --- Event Listeners ---
 
-function loadImage() {
-  points = [];
-  const file = images[currentIndex];
-  const reader = new FileReader();
-  reader.onload = e => {
-    const img = new Image();
-    img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      previewCanvas.width = img.width;
-      previewCanvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
-      drawBlackPreview();  // ✅ show default black mask
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-  info.innerHTML = `Image ${currentIndex + 1} / ${images.length}: ${file.name}`;
-}
-
-function drawBlackPreview() {
-  previewCtx.fillStyle = 'black';
-  previewCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
-}
-
-canvas.addEventListener('click', e => {
-  const rect = canvas.getBoundingClientRect();
-  const x = Math.round(e.clientX - rect.left);
-  const y = Math.round(e.clientY - rect.top);
-  if (points.length >= 2) points = [];
-  points.push([x, y]);
-  drawPoints();
-  updateMaskPreview();
-});
-
-function drawPoints() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const img = new Image();
-  img.onload = () => {
-    ctx.drawImage(img, 0, 0);
-    ctx.fillStyle = 'red';
-    points.forEach(p => {
-      ctx.beginPath();
-      ctx.arc(p[0], p[1], 4, 0, 2 * Math.PI);
-      ctx.fill();
+    // Listen for folder selection
+    folderInput.addEventListener('change', () => {
+        images = Array.from(folderInput.files).filter(f => f.name.endsWith('.png'));
+        if (images.length > 0) {
+            currentIndex = 0;
+            loadImage();
+            // Show the main content area after loading images
+            canvasContainer.classList.remove('hidden');
+            controlsContainer.classList.remove('hidden');
+        } else {
+            info.innerHTML = "No PNG images found in the selected directory.";
+        }
     });
-    if (points.length === 2) {
-      ctx.beginPath();
-      ctx.moveTo(points[0][0], points[0][1]);
-      ctx.lineTo(points[1][0], points[1][1]);
-      ctx.strokeStyle = 'red';
-      ctx.lineWidth = 2;
-      ctx.stroke();
+
+    // Listen for clicks on the main canvas to draw points
+    canvas.addEventListener('click', e => {
+        const rect = canvas.getBoundingClientRect();
+        
+        // --- SCALING LOGIC ---
+        // This is crucial for responsive canvases. We scale the click coordinates
+        // from the displayed size to the canvas's actual resolution.
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        
+        const x = Math.round((e.clientX - rect.left) * scaleX);
+        const y = Math.round((e.clientY - rect.top) * scaleY);
+        
+        if (points.length >= 2) {
+            points = []; // Reset after two points are placed
+        }
+        points.push([x, y]);
+        
+        drawPointsAndLine();
+        updateMaskPreview();
+    });
+
+    // --- Core Functions ---
+
+    /**
+     * Loads the current image into the canvas.
+     */
+    function loadImage() {
+        if (images.length === 0 || currentIndex < 0 || currentIndex >= images.length) return;
+        
+        points = []; // Clear points for the new image
+        const file = images[currentIndex];
+        const reader = new FileReader();
+        
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                // Set the canvas resolution to the image's native size
+                canvas.width = img.width;
+                canvas.height = img.height;
+                previewCanvas.width = img.width;
+                previewCanvas.height = img.height;
+                
+                // Draw the image and the initial black preview
+                ctx.drawImage(img, 0, 0);
+                drawBlackPreview();
+            };
+            img.src = e.target.result;
+        };
+        
+        reader.readAsDataURL(file);
+        info.innerHTML = `<strong>Image ${currentIndex + 1} / ${images.length}:</strong> ${file.name}`;
     }
-  };
-  img.src = URL.createObjectURL(images[currentIndex]);
-}
 
-function updateMaskPreview() {
-  if (points.length !== 2) {
-    drawBlackPreview();
-    return;
-  }
-  const file = images[currentIndex];
-  const formData = new FormData();
-  formData.append('image', file);
-  formData.append('points', JSON.stringify(points));
-
-  fetch('/generate_mask', {
-    method: 'POST',
-    body: formData
-  })
-  .then(res => res.json())
-  .then(data => {
-    const img = new Image();
-    img.onload = () => {
-      previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-      previewCtx.drawImage(img, 0, 0);
-    };
-    img.src = data.mask_image;
-  });
-}
-
-function downloadMask() {
-  const file = images[currentIndex];
-  const formData = new FormData();
-  formData.append('image', file);
-  formData.append('filename', file.name);
-  formData.append('points', JSON.stringify(points));  // could be []
-
-  fetch('/save_mask', {
-    method: 'POST',
-    body: formData
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.success) {
-      console.log(`✅ Saved: ${data.paths.png} and ${data.paths.tif}`);
-    } else {
-      console.error("❌ Save failed.");
+    /**
+     * Fills the preview canvas with black.
+     */
+    function drawBlackPreview() {
+        previewCtx.fillStyle = 'black';
+        previewCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
     }
-  });
-}
 
-function clearPoints() {
-  points = [];
-  loadImage();
-}
+    /**
+     * Redraws the original image, points, and the connecting line.
+     */
+    function drawPointsAndLine() {
+        const img = new Image();
+        img.onload = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0); // Redraw the base image first
+            
+            // Draw points
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.lineWidth = 2;
+            points.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p[0], p[1], 6, 0, 2 * Math.PI); // Larger, more visible points
+                ctx.fill();
+                ctx.stroke();
+            });
+            
+            // Draw connecting line
+            if (points.length === 2) {
+                ctx.beginPath();
+                ctx.moveTo(points[0][0], points[0][1]);
+                ctx.lineTo(points[1][0], points[1][1]);
+                ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+            }
+        };
+        img.src = URL.createObjectURL(images[currentIndex]);
+    }
 
-function nextImage() {
-  if (currentIndex < images.length - 1) {
-    currentIndex++;
-    loadImage();
-  }
-}
-function prevImage() {
-  if (currentIndex > 0) {
-    currentIndex--;
-    loadImage();
-  }
-}
+    /**
+     * Fetches the generated mask from the backend and displays it.
+     */
+    function updateMaskPreview() {
+        if (points.length !== 2) {
+            drawBlackPreview(); // If not two points, show a black mask
+            return;
+        }
+        
+        const file = images[currentIndex];
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('points', JSON.stringify(points));
+
+        fetch('/generate_mask', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                console.error("Error generating mask:", data.error);
+                return;
+            }
+            const img = new Image();
+            img.onload = () => {
+                previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+                previewCtx.drawImage(img, 0, 0);
+            };
+            img.src = data.mask_image;
+        })
+        .catch(err => console.error("Fetch error:", err));
+    }
+
+    /**
+     * Sends the mask data to the backend to be saved.
+     */
+    function downloadMask() {
+        const file = images[currentIndex];
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('filename', file.name);
+        formData.append('points', JSON.stringify(points));
+
+        fetch('/save_mask', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                console.log(`✅ Saved: ${data.paths.png} and ${data.paths.tif}`);
+                showToast("Mask saved successfully!");
+                // Automatically move to the next image after saving
+                setTimeout(nextImage, 500); 
+            } else {
+                console.error("❌ Save failed:", data.error);
+                showToast("Error: Could not save mask.", true);
+            }
+        })
+        .catch(err => {
+            console.error("Fetch error:", err)
+            showToast("Error: Network request failed.", true);
+        });
+    }
+    
+    /**
+     * Displays a toast notification.
+     * @param {string} message - The message to display.
+     * @param {boolean} isError - If true, styles the toast as an error.
+     */
+    function showToast(message, isError = false) {
+        toast.textContent = message;
+        toast.className = toast.className.replace(/bg-gray-900|bg-red-600/, isError ? 'bg-red-600' : 'bg-gray-900');
+        toast.classList.remove('opacity-0');
+        setTimeout(() => {
+            toast.classList.add('opacity-0');
+        }, 3000);
+    }
+
+    // --- Navigation and Control Functions ---
+
+    function clearPoints() {
+        points = [];
+        loadImage(); // Reload the image to clear drawn points
+    }
+
+    function nextImage() {
+        if (currentIndex < images.length - 1) {
+            currentIndex++;
+            loadImage();
+        } else {
+            showToast("You've reached the last image.");
+        }
+    }
+
+    function prevImage() {
+        if (currentIndex > 0) {
+            currentIndex--;
+            loadImage();
+        } else {
+             showToast("This is the first image.");
+        }
+    }
 </script>
+
 </body>
 </html>
