@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TIFF Mask Comparison Tool</title>
+    <script src="https://unpkg.com/geotiff@2.0.7/dist-browser/geotiff.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 2rem;
+            background-color: #f4f7f9;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #1a253c;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 0.5rem;
+        }
+        .upload-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        .file-input-wrapper {
+            border: 2px dashed #cbd5e0;
+            padding: 1.5rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .file-input-wrapper label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        input[type="file"] {
+            margin-top: 0.5rem;
+        }
+        .results-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        .metric-card {
+            background-color: #f8fafc;
+            padding: 1.5rem;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+        .metric-card h3 {
+            margin: 0 0 0.5rem 0;
+            color: #4a5568;
+        }
+        .metric-card .score {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #2d3748;
+        }
+        .visualization-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+            text-align: center;
+        }
+        canvas {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #cbd5e0;
+            background-color: #f0f0f0;
+        }
+        .error {
+            color: #e53e3e;
+            font-weight: bold;
+            background-color: #fed7d7;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid #f56565;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>TIFF Mask Comparison Tool</h1>
+    <p>Upload a ground truth mask and a predicted mask to compare them and calculate accuracy metrics.</p>
+
+    <div class="upload-section">
+        <div class="file-input-wrapper">
+            <label for="groundTruthFile">1. Ground Truth Mask (.tif)</label>
+            <input type="file" id="groundTruthFile" accept=".tif,.tiff">
+        </div>
+        <div class="file-input-wrapper">
+            <label for="predictedFile">2. Predicted Mask (.tif)</label>
+            <input type="file" id="predictedFile" accept=".tif,.tiff">
+        </div>
+    </div>
+
+    <div id="results-container" style="display:none;">
+        <h2>Accuracy Metrics</h2>
+        <div id="error-message"></div>
+        <div class="results-section">
+            <div class="metric-card">
+                <h3>Intersection over Union (IoU)</h3>
+                <p class="score" id="iou-score">0.00</p>
+            </div>
+            <div class="metric-card">
+                <h3>Dice Coefficient (F1)</h3>
+                <p class="score" id="dice-score">0.00</p>
+            </div>
+            <div class="metric-card">
+                <h3>Pixel Accuracy</h3>
+                <p class="score" id="accuracy-score">0.00</p>
+            </div>
+             <div class="metric-card">
+                <h3>Precision</h3>
+                <p class="score" id="precision-score">0.00</p>
+            </div>
+             <div class="metric-card">
+                <h3>Recall</h3>
+                <p class="score" id="recall-score">0.00</p>
+            </div>
+        </div>
+
+        <h2>Mask Visualization</h2>
+        <div class="visualization-section">
+            <div>
+                <h3>Ground Truth</h3>
+                <canvas id="canvas-gt"></canvas>
+            </div>
+            <div>
+                <h3>Prediction</h3>
+                <canvas id="canvas-pred"></canvas>
+            </div>
+            <div>
+                <h3>Comparison Overlay</h3>
+                <p style="font-size: 0.9em; margin-top: 0;">
+                    <span style="color: #48bb78;">■</span> True Positive &nbsp;
+                    <span style="color: #f56565;">■</span> False Positive &nbsp;
+                    <span style="color: #f6e05e;">■</span> False Negative
+                </p>
+                <canvas id="canvas-diff"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Get references to DOM elements
+    const groundTruthInput = document.getElementById('groundTruthFile');
+    const predictedInput = document.getElementById('predictedFile');
+    const resultsContainer = document.getElementById('results-container');
+    const errorMessageDiv = document.getElementById('error-message');
+
+    // Add event listeners to file inputs
+    groundTruthInput.addEventListener('change', handleFileSelect);
+    predictedInput.addEventListener('change', handleFileSelect);
+
+    // This function runs when either file input changes
+    async function handleFileSelect() {
+        // Ensure both files are selected before proceeding
+        if (!groundTruthInput.files[0] || !predictedInput.files[0]) {
+            return;
+        }
+
+        resultsContainer.style.display = 'block';
+        errorMessageDiv.innerHTML = ''; // Clear previous errors
+
+        try {
+            // Read both TIFF files as arrays of pixel data
+            const [gtData, predData] = await Promise.all([
+                readTiff(groundTruthInput.files[0]),
+                readTiff(predictedInput.files[0])
+            ]);
+
+            // Check if dimensions match
+            if (gtData.width !== predData.width || gtData.height !== predData.height) {
+                throw new Error("Mask dimensions do not match!");
+            }
+
+            // Calculate the confusion matrix
+            const { TP, TN, FP, FN } = calculateConfusionMatrix(gtData.values, predData.values);
+            
+            // Calculate accuracy metrics
+            const metrics = calculateMetrics(TP, TN, FP, FN);
+
+            // Display the metrics on the page
+            updateMetricCards(metrics);
+            
+            // Render the masks on the canvases for visualization
+            drawMask(document.getElementById('canvas-gt'), gtData, { '0': '#1A202C', '1': '#A0AEC0' }); // Dark/Light Gray
+            drawMask(document.getElementById('canvas-pred'), predData, { '0': '#1A202C', '1': '#A0AEC0' });
+            drawComparison(document.getElementById('canvas-diff'), gtData, predData);
+
+        } catch (error) {
+            console.error("Error processing TIFF files:", error);
+            errorMessageDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            resultsContainer.style.display = 'none'; // Hide results on error
+        }
+    }
+
+    // Function to read a single TIFF file blob and return its data and dimensions
+    async function readTiff(fileBlob) {
+        const tiff = await GeoTIFF.fromBlob(fileBlob);
+        const image = await tiff.getImage(); // Get the first image from the TIFF
+        const width = image.getWidth();
+        const height = image.getHeight();
+        // Read the raster data. Assumes a single band (band 0).
+        const values = await image.readRasters({ window: [0, 0, width, height] });
+        return { values: values[0], width, height };
+    }
+
+    // Function to calculate the confusion matrix from two flat arrays of pixel values
+    function calculateConfusionMatrix(gt, pred) {
+        let TP = 0, TN = 0, FP = 0, FN = 0;
+        for (let i = 0; i < gt.length; i++) {
+            const gtPixel = gt[i] > 0 ? 1 : 0; // Binarize the data just in case
+            const predPixel = pred[i] > 0 ? 1 : 0;
+
+            if (gtPixel === 1 && predPixel === 1) TP++;
+            else if (gtPixel === 0 && predPixel === 0) TN++;
+            else if (gtPixel === 0 && predPixel === 1) FP++;
+            else if (gtPixel === 1 && predPixel === 0) FN++;
+        }
+        return { TP, TN, FP, FN };
+    }
+    
+    // Function to calculate the final accuracy metrics
+    function calculateMetrics(TP, TN, FP, FN) {
+        // Add a small epsilon to denominators to prevent division by zero
+        const epsilon = 1e-7;
+
+        const iou = TP / (TP + FP + FN + epsilon);
+        const dice = (2 * TP) / (2 * TP + FP + FN + epsilon);
+        const accuracy = (TP + TN) / (TP + TN + FP + FN + epsilon);
+        const precision = TP / (TP + FP + epsilon);
+        const recall = TP / (TP + FN + epsilon);
+        
+        return { iou, dice, accuracy, precision, recall };
+    }
+
+    // Function to update the display cards with the calculated scores
+    function updateMetricCards(metrics) {
+        document.getElementById('iou-score').textContent = metrics.iou.toFixed(4);
+        document.getElementById('dice-score').textContent = metrics.dice.toFixed(4);
+        document.getElementById('accuracy-score').textContent = metrics.accuracy.toFixed(4);
+        document.getElementById('precision-score').textContent = metrics.precision.toFixed(4);
+        document.getElementById('recall-score').textContent = metrics.recall.toFixed(4);
+    }
+    
+    // Function to draw a single mask on a canvas element
+    function drawMask(canvas, data, colorMap) {
+        const { values, width, height } = data;
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        const imageData = ctx.createImageData(width, height);
+        
+        for (let i = 0; i < values.length; i++) {
+            const pixelVal = values[i] > 0 ? '1' : '0';
+            const color = hexToRgb(colorMap[pixelVal]);
+            imageData.data[i * 4] = color.r;
+            imageData.data[i * 4 + 1] = color.g;
+            imageData.data[i * 4 + 2] = color.b;
+            imageData.data[i * 4 + 3] = 255; // Alpha
+        }
+        ctx.putImageData(imageData, 0, 0);
+    }
+
+    // Function to draw the comparison overlay (TP, FP, FN) on a canvas
+    function drawComparison(canvas, gtData, predData) {
+        const { width, height } = gtData;
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        const imageData = ctx.createImageData(width, height);
+        const gtValues = gtData.values;
+        const predValues = predData.values;
+
+        // Color definitions
+        const TP_COLOR = hexToRgb('#48BB78'); // Green
+        const FP_COLOR = hexToRgb('#F56565'); // Red
+        const FN_COLOR = hexToRgb('#F6E05E'); // Yellow
+        const TN_COLOR = hexToRgb('#1A202C'); // Black
+
+        for (let i = 0; i < gtValues.length; i++) {
+            const gtPixel = gtValues[i] > 0 ? 1 : 0;
+            const predPixel = predValues[i] > 0 ? 1 : 0;
+            let color;
+
+            if (gtPixel === 1 && predPixel === 1) color = TP_COLOR;
+            else if (gtPixel === 0 && predPixel === 1) color = FP_COLOR;
+            else if (gtPixel === 1 && predPixel === 0) color = FN_COLOR;
+            else color = TN_COLOR;
+
+            imageData.data[i * 4] = color.r;
+            imageData.data[i * 4 + 1] = color.g;
+            imageData.data[i * 4 + 2] = color.b;
+            imageData.data[i * 4 + 3] = 255;
+        }
+        ctx.putImageData(imageData, 0, 0);
+    }
+    
+    // Helper function to convert a hex color string to an RGB object
+    function hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+        } : null;
+    }
+
+</script>
+</body>
+</html>
