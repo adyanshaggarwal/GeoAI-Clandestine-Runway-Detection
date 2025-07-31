@@ -2,6 +2,8 @@
 
 Prepares and trains a YOLOv8 model to detect airstrips from satellite images using binary mask annotations.
 
+**Note :** I have also uploaded my latest trained model on 890 images for 50 epochs. 
+
 ---
 
 ## 1. `Create_yolo_bounds.ipynb`
