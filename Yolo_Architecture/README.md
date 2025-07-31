@@ -1,10 +1,10 @@
-# 🛩️ Airstrip Detection with YOLOv8
+# Airstrip Detection with YOLOv8
 
-This project prepares and trains a YOLOv8 model to detect airstrips from satellite images using binary mask annotations.
+Prepares and trains a YOLOv8 model to detect airstrips from satellite images using binary mask annotations.
 
 ---
 
-## 📦 1. `convert_to_yolo_bounds_test_1.ipynb`
+## 1. `Create_yolo_bounds.ipynb`
 
 **Purpose:**  
 Converts binary mask images into YOLO-formatted bounding box annotations.
@@ -21,7 +21,7 @@ Converts binary mask images into YOLO-formatted bounding box annotations.
 
 ---
 
-## 🏋️ 2. `Yolo2.ipynb`
+## 2. `Yolo2.ipynb`
 
 **Purpose:**  
 Trains a YOLOv8 model on the dataset created above.
@@ -54,7 +54,7 @@ yolo_airstrip_dataset/
 
 ---
 
-## Requirements
+## Requirement
 
 - Google Colab
 - Python 3
