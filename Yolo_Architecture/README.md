@@ -2,7 +2,7 @@
 
 Prepares and trains a YOLOv8 model to detect airstrips from satellite images using binary mask annotations.
 
-**Note :** I have also uploaded my latest trained model on 890 images for 50 epochs. 
+**Note :** I have also uploaded my latest trained model on 708 images for 100 epochs. (177 for val)
 
 ---
 
