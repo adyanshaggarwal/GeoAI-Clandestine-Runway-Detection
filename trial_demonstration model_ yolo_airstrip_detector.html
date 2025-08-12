@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YOLOv8 Airstrip Detection System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header {
+            background: linear-gradient(45deg, #2c3e50, #34495e);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        
+        .main-content {
+            padding: 40px;
+        }
+        
+        .upload-section {
+            background: #f8f9fa;
+            border: 3px dashed #dee2e6;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .upload-section:hover {
+            border-color: #007bff;
+            background: #e3f2fd;
+        }
+        
+        .upload-section.dragover {
+            border-color: #28a745;
+            background: #d4edda;
+            transform: scale(1.02);
+        }
+        
+        .upload-icon {
+            font-size: 4rem;
+            color: #6c757d;
+            margin-bottom: 20px;
+        }
+        
+        .upload-text {
+            font-size: 1.2rem;
+            color: #495057;
+            margin-bottom: 15px;
+        }
+        
+        .upload-hint {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 123, 255, 0.4);
+        }
+        
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .results-section {
+            margin-top: 30px;
+        }
+        
+        .image-container {
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+            margin: 20px 0;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .detection-canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .detection-info {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .detection-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .confidence-bar {
+            background: #e9ecef;
+            border-radius: 10px;
+            height: 20px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #28a745, #20c997);
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .detection-stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>YOLOv8 Airstrip Detection</h1>
+            <p>Upload satellite images to detect airstrips with confidence scores</p>
+        </div>
+        
+        <div class="main-content">
+            <div class="upload-section" id="uploadArea">
+                <div class="upload-icon">📡</div>
+                <div class="upload-text">Drop your images here</div>
+                <input type="file" id="fileInput" accept="image/*" multiple>
+                <button class="btn" onclick="document.getElementById('fileInput').click()">Choose Files</button>
+            </div>
+            
+            <div class="loading" id="loadingIndicator">
+                <div class="spinner"></div>
+                <p>Processing image with YOLOv8 model...</p>
+            </div>
+            
+            <div class="results-section" id="resultsSection"></div>
+        </div>
+    </div>
+
+    <script>
+        class AirstripDetector {
+            constructor() {
+                this.setupEventListeners();
+                this.detectionResults = [];
+            }
+            
+            setupEventListeners() {
+                const uploadArea = document.getElementById('uploadArea');
+                const fileInput = document.getElementById('fileInput');
+                
+                // Drag and drop functionality
+                uploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.add('dragover');
+                });
+                
+                uploadArea.addEventListener('dragleave', () => {
+                    uploadArea.classList.remove('dragover');
+                });
+                
+                uploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.remove('dragover');
+                    const files = Array.from(e.dataTransfer.files);
+                    this.processFiles(files);
+                });
+                
+                // Click to upload
+                uploadArea.addEventListener('click', () => {
+                    fileInput.click();
+                });
+                
+                fileInput.addEventListener('change', (e) => {
+                    const files = Array.from(e.target.files);
+                    this.processFiles(files);
+                });
+            }
+            
+            processFiles(files) {
+                const validExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'];
+                const imageFiles = files.filter(file => {
+                    const fileName = file.name.toLowerCase();
+                    return file.type.startsWith('image/') || validExtensions.some(ext => fileName.endsWith(ext));
+                });
+                
+                if (imageFiles.length === 0) {
+                    alert('Please select valid image files');
+                    return;
+                }
+                
+                imageFiles.forEach(file => this.processImage(file));
+            }
+            
+            async processImage(file) {
+                this.showLoading(true);
+                
+                try {
+                    // Create FileReader to handle the image data
+                    const reader = new FileReader();
+                    const imageData = await new Promise((resolve, reject) => {
+                        reader.onload = e => resolve(e.target.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
+                    
+                    const img = await this.loadImage(imageData);
+                    
+                    // Simulate YOLOv8 detection (replace with actual model inference)
+                    const detections = await this.simulateYOLODetection(img);
+                    
+                    this.displayResults(img, detections, file.name);
+                    
+                } catch (error) {
+                    console.error('Error processing image:', error);
+                    alert('Error processing image: ' + error.message);
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+            
+            loadImage(dataUrl) {
+                return new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.onload = function() {
+                        try {
+                            // Validate the image loaded correctly
+                            if (this.naturalWidth > 0 && this.naturalHeight > 0) {
+                                resolve(this);
+                            } else {
+                                reject(new Error('Invalid image dimensions'));
+                            }
+                        } catch (e) {
+                            reject(new Error('Image validation failed: ' + e.message));
+                        }
+                    };
+                    img.onerror = function() {
+                        reject(new Error('Failed to load image file'));
+                    };
+                    
+                    // Set source after event handlers are attached
+                    try {
+                        img.src = dataUrl;
+                    } catch (e) {
+                        reject(new Error('Invalid image data: ' + e.message));
+                    }
+                });
+            }
+            
+            async simulateYOLODetection(img) {
+                // Simulate processing time
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // Generate realistic airstrip detections
+                const detections = [];
+                const numDetections = Math.floor(Math.random() * 3) + 1; // 1-3 detections
+                
+                for (let i = 0; i < numDetections; i++) {
+                    const detection = {
+                        class: 'airstrip',
+                        confidence: 0.75 + Math.random() * 0.24, // 0.75 to 0.99
+                        bbox: {
+                            x: Math.random() * (img.width * 0.6),
+                            y: Math.random() * (img.height * 0.6),
+                            width: 100 + Math.random() * 200,
+                            height: 20 + Math.random() * 60
+                        }
+                    };
+                    detections.push(detection);
+                }
+                
+                return detections;
+            }
+            
+            displayResults(img, detections, filename) {
+                const resultsSection = document.getElementById('resultsSection');
+                
+                // Create canvas for drawing detections
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Set canvas size to match image
+                canvas.width = img.naturalWidth || img.width;
+                canvas.height = img.naturalHeight || img.height;
+                canvas.className = 'detection-canvas';
+                
+                // Clear canvas and draw image
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                
+                // Draw detections
+                detections.forEach(detection => {
+                    this.drawBoundingBox(ctx, detection);
+                });
+                
+                // Create result container
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'image-result';
+                
+                // Create image container and append canvas
+                const imageContainer = document.createElement('div');
+                imageContainer.className = 'image-container';
+                imageContainer.appendChild(canvas);
+                
+                resultDiv.innerHTML = `
+                    <h3 style="margin-bottom: 20px; color: #2c3e50;">Detection Results: ${filename}</h3>
+                `;
+                
+                resultDiv.appendChild(imageContainer);
+                
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'detection-info';
+                infoDiv.innerHTML = `
+                    <h4>Detections Found: ${detections.length}</h4>
+                    ${detections.map((det, index) => `
+                        <div style="margin: 10px 0; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 8px;">
+                            <strong>Airstrip ${index + 1}</strong>
+                            <div class="confidence-bar">
+                                <div class="confidence-fill" style="width: ${det.confidence * 100}%">
+                                    ${(det.confidence * 100).toFixed(1)}%
+                                </div>
+                            </div>
+                            <small>Location: (${Math.round(det.bbox.x)}, ${Math.round(det.bbox.y)}) | Size: ${Math.round(det.bbox.width)}×${Math.round(det.bbox.height)}px</small>
+                        </div>
+                    `).join('')}
+                `;
+                
+                resultDiv.appendChild(infoDiv);
+                
+                // Add statistics
+                const avgConfidence = detections.reduce((sum, det) => sum + det.confidence, 0) / detections.length;
+                const maxConfidence = Math.max(...detections.map(det => det.confidence));
+                
+                const statsDiv = document.createElement('div');
+                statsDiv.className = 'detection-stats';
+                statsDiv.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-value">${detections.length}</div>
+                        <div class="stat-label">Airstrips Detected</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${(avgConfidence * 100).toFixed(1)}%</div>
+                        <div class="stat-label">Average Confidence</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${(maxConfidence * 100).toFixed(1)}%</div>
+                        <div class="stat-label">Highest Confidence</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${canvas.width}×${canvas.height}</div>
+                        <div class="stat-label">Image Resolution</div>
+                    </div>
+                `;
+                
+                resultDiv.appendChild(statsDiv);
+                resultsSection.appendChild(resultDiv);
+                
+                // Store results
+                this.detectionResults.push({
+                    filename,
+                    detections,
+                    imageSize: { width: canvas.width, height: canvas.height }
+                });
+            }
+            
+            drawBoundingBox(ctx, detection) {
+                const { bbox, confidence } = detection;
+                
+                // Set drawing style
+                ctx.strokeStyle = '#ff4444';
+                ctx.lineWidth = 3;
+                ctx.fillStyle = 'rgba(255, 68, 68, 0.8)';
+                ctx.font = 'bold 16px Arial';
+                
+                // Draw bounding box
+                ctx.strokeRect(bbox.x, bbox.y, bbox.width, bbox.height);
+                
+                // Draw label background
+                const label = `airstrip ${(confidence * 100).toFixed(0)}%`;
+                const textMetrics = ctx.measureText(label);
+                const textWidth = textMetrics.width + 10;
+                const textHeight = 25;
+                
+                ctx.fillRect(bbox.x, bbox.y - textHeight, textWidth, textHeight);
+                
+                // Draw label text
+                ctx.fillStyle = 'white';
+                ctx.fillText(label, bbox.x + 5, bbox.y - 7);
+            }
+            
+            showLoading(show) {
+                const loading = document.getElementById('loadingIndicator');
+                loading.classList.toggle('show', show);
+            }
+        }
+        
+        // Initialize the detector when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new AirstripDetector();
+        });
+    </script>
+</body>
+</html>
