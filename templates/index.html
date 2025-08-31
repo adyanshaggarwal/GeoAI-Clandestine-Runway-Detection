@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Airstrip Detection</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      /* Color system (3-5 colors total)
+         - Primary: Emerald #10b981
+         - Neutral dark: Slate-900 #0f172a
+         - Neutral light: White #ffffff / Gray-200 #e5e7eb
+         - Accent: Amber #f59e0b
+      */
+
+      /* Page background */
+      :root {
+        --primary: #10b981;
+        --primary-600: #0ea371;
+        --accent: #f59e0b;
+        --bg-light: #ffffff;
+        --text: #1f2937;
+        --border: rgba(0, 0, 0, 0.1);
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        line-height: 1.55;
+        color: var(--text);
+        background: #ffffff;
+        position: relative;
+        min-height: 100vh;
+      }
+
+      /* Subtle pattern overlay */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image: 
+          radial-gradient(circle at 25% 25%, rgba(16, 185, 129, 0.03) 0%, transparent 50%),
+          radial-gradient(circle at 75% 75%, rgba(59, 130, 246, 0.03) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .page-wrap {
+        min-height: 100%;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        position: relative;
+        z-index: 1;
+      }
+
+      /* Glassy card */
+      .card {
+        width: 100%;
+        max-width: 880px;
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 28px;
+        backdrop-filter: blur(12px);
+        box-shadow: 0 25px 70px rgba(0, 0, 0, 0.1);
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 12px;
+      }
+
+      .title {
+        margin: 0 0 8px 0;
+        font-size: 32px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        background: linear-gradient(135deg, var(--primary), #34d399);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .subtitle {
+        margin: 0 auto;
+        max-width: 60ch;
+        color: #64748b; /* slate-500 */
+      }
+
+      /* Utilities */
+      .text-balance {
+        text-wrap: balance;
+      }
+      .text-pretty {
+        text-wrap: pretty;
+      }
+      .muted {
+        color: #64748b; /* slate-500 */
+      }
+
+      /* Form */
+      .form {
+        display: grid;
+        gap: 16px;
+        margin-top: 16px;
+      }
+
+      .form-row {
+        display: grid;
+        gap: 8px;
+      }
+
+      .label {
+        font-weight: 600;
+        letter-spacing: 0.2px;
+      }
+
+      .file-input {
+        appearance: none;
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: rgba(248, 250, 252, 0.8);
+        color: var(--text);
+        transition: border-color 0.2s ease;
+      }
+
+      .file-input:hover {
+        border-color: var(--primary);
+      }
+
+      .file-input::file-selector-button {
+        margin-right: 12px;
+        padding: 8px 12px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--primary);
+        color: #ffffff;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+      }
+
+      .file-input::file-selector-button:hover {
+        background: var(--primary-600);
+      }
+
+      .file-input:focus {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
+
+      .hint {
+        margin: 4px 0 0 0;
+        font-size: 14px;
+        color: #64748b;
+      }
+
+      /* Buttons */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 12px 18px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        font-weight: 700;
+        cursor: pointer;
+        text-decoration: none;
+        transition: transform 0.04s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+        user-select: none;
+        will-change: transform;
+      }
+
+      .btn:active {
+        transform: translateY(1px);
+      }
+
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .btn-primary {
+        background: var(--primary);
+        color: #ffffff;
+      }
+
+      .btn-primary:hover:not(:disabled) {
+        background: var(--primary-600);
+        box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
+      }
+
+      .btn-accent {
+        background: var(--accent);
+        color: #1f1301;
+      }
+
+      .btn-accent:hover {
+        filter: brightness(0.95);
+        box-shadow: 0 8px 25px rgba(245, 158, 11, 0.3);
+      }
+
+      .actions {
+        margin-top: 4px;
+      }
+
+      /* Loading overlay */
+      .loading-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.8);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        backdrop-filter: blur(4px);
+      }
+
+      .loading-overlay.show {
+        display: flex;
+      }
+
+      .loading-box {
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 32px;
+        text-align: center;
+        min-width: 300px;
+        box-shadow: 0 25px 70px rgba(0, 0, 0, 0.2);
+      }
+
+      .loading-spinner {
+        width: 48px;
+        height: 48px;
+        border: 4px solid rgba(16, 185, 129, 0.2);
+        border-top: 4px solid var(--primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 16px;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      .loading-text {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--primary);
+      }
+
+      .loading-details {
+        font-size: 14px;
+        color: #64748b;
+      }
+
+      /* Results */
+      .results {
+        margin-top: 28px;
+        border-top: 1px solid var(--border);
+        padding-top: 20px;
+      }
+
+      .results-title {
+        margin: 0 0 12px;
+        font-size: 22px;
+        font-weight: 700;
+      }
+
+      .result-image {
+        display: block;
+        width: 100%;
+        height: auto;
+        border-radius: 14px;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+        border: 1px solid var(--border);
+        margin-bottom: 14px;
+        transition: transform 0.3s ease;
+      }
+
+      .result-image:hover {
+        transform: scale(1.02);
+      }
+
+      /* Alerts */
+      .alert {
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: rgba(239, 68, 68, 0.08);
+        color: #dc2626;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        margin-bottom: 16px;
+      }
+
+      /* Footer */
+      .footer {
+        margin-top: 18px;
+        text-align: center;
+        border-top: 1px dashed var(--border);
+        padding-top: 14px;
+      }
+
+      /* Reduce motion preference */
+      @media (prefers-reduced-motion: reduce) {
+        .btn {
+          transition: none;
+        }
+        .loading-spinner {
+          animation: none;
+        }
+        .result-image {
+          transition: none;
+        }
+        body {
+          animation: none;
+        }
+      }
+
+      /* Mobile responsiveness */
+      @media (max-width: 640px) {
+        .card {
+          padding: 20px;
+          margin: 16px;
+        }
+        .title {
+          font-size: 28px;
+        }
+        .loading-box {
+          margin: 16px;
+          min-width: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-wrap">
+      <main class="card" role="main" aria-labelledby="title">
+        <header class="header">
+          <h1 id="title" class="title text-balance">Amazon Airstrip Detection</h1>
+          <p class="subtitle text-pretty">
+            Upload a GeoTIFF image to detect potential airstrips across the area of interest.
+          </p>
+        </header>
+
+        {% if error_message %}
+          <div class="alert" role="alert" aria-live="polite">
+            {{ error_message }}
+          </div>
+        {% endif %}
+
+        <form id="detection-form" method="post" enctype="multipart/form-data" class="form">
+          <div class="form-row">
+            <label for="file" class="label">GeoTIFF file</label>
+            <input
+              id="file"
+              class="file-input"
+              type="file"
+              name="file"
+              accept=".tif,.tiff"
+              required
+            />
+            <p class="hint">Accepted formats: .tif, .tiff • Max size ~512MB</p>
+          </div>
+
+          <div class="actions">
+            <button id="submit-btn" class="btn btn-primary" type="submit" aria-label="Run detection">
+              Run Detection
+            </button>
+          </div>
+        </form>
+
+        {% if result_url %}
+          <section class="results" aria-live="polite">
+            <h2 class="results-title">Results</h2>
+            <img class="result-image" src="{{ result_url }}" alt="Detection result overlay on the uploaded area of interest" />
+            <div class="actions">
+              <a class="btn btn-accent" href="{{ result_url }}" download>
+                Download Result
+              </a>
+            </div>
+          </section>
+        {% endif %}
+
+        <footer class="footer">
+          <small class="muted">&copy; {{ 2025 }} Airstrip Detection • Built with Flask</small>
+        </footer>
+      </main>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+      <div class="loading-box">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Processing Image</div>
+        <div class="loading-details">Analyzing GeoTIFF for airstrip detection...</div>
+      </div>
+    </div>
+
+    <script>
+      // Handle form submission and show loading
+      document.getElementById('detection-form').addEventListener('submit', function(e) {
+        const fileInput = document.getElementById('file');
+        const submitBtn = document.getElementById('submit-btn');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        
+        // Check if file is selected
+        if (!fileInput.files.length) {
+          return; // Let default validation handle this
+        }
+        
+        // Show loading overlay
+        loadingOverlay.classList.add('show');
+        
+        // Disable submit button
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Processing...';
+        
+        // Note: The form will submit normally and the page will reload with results
+        // The loading overlay will be hidden on page reload
+      });
+
+      // Hide loading on page load (in case of back button or refresh)
+      window.addEventListener('load', function() {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        loadingOverlay.classList.remove('show');
+        
+        const submitBtn = document.getElementById('submit-btn');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Run Detection';
+      });
+    </script>
+  </body>
+</html>
