@@ -26,9 +26,9 @@ root/
 
 ---
 
-1. Setup Instructions
+# 1. Setup Instructions
 
-# 1.1. Install Dependencies
+1.1. Install Dependencies
 
 Create a virtual environment (recommended) and install requirements:
 
@@ -38,14 +38,14 @@ pip install -r requirements.txt
 
 ---
 
-2. Annotation Tool Usage
+# 2. Annotation Tool Usage
 
 The **Annotator** helps you create binary runway masks from satellite PNG images.
 (Referenced in the workflow in the project report’s methodology section .)
 
 ---
 
-# 2.1 Launch the Annotator
+2.1 Launch the Annotator
 
 Run:
 
@@ -58,7 +58,7 @@ Open it in your browser.
 
 ---
 
-# 2.2 Upload Image Folder
+2.2 Upload Image Folder
 
 Inside the UI:
 
@@ -70,19 +70,19 @@ Inside the UI:
 
 ---
 
-# 2.3 Annotating Runways
+2.3 Annotating Runways
 
 1. Click **two endpoints** on the image → a runway line is drawn.
 2. A **binary mask** appears next to the image.
 3. Press **Download** to save the mask.
 
-# If the image contains *no runway*:
+If the image contains *no runway*:
 
 Simply click **Download** without marking any points.
 
 ---
 
-# 2.4 Output Files
+2.4 Output Files
 
 Masks are automatically saved to:
 
@@ -98,7 +98,7 @@ You can monitor downloads via **Right-Click → Inspect → Console** in the bro
 
 ---
 
-3. YOLOv8 Detection Pipeline (Overview)
+# 3. YOLOv8 Detection Pipeline (Overview)
 
 This repository also supports training and inference of the model described in the project report.
 The method uses:
@@ -114,7 +114,7 @@ To train or run inference, refer to the scripts inside `scripts/`.
 
 ---
 
-4. Running Inference (Optional)
+# 4. Running Inference (Optional)
 
 After placing weights in `models/`, you can run:
 
@@ -130,7 +130,7 @@ Outputs include:
 
 ---
 
-5. Dataset Notes
+# 5. Dataset Notes
 
 As described in the project report’s *Methodology & Data* section :
 
@@ -144,7 +144,7 @@ As described in the project report’s *Methodology & Data* section :
 
 ---
 
-6. Annotation → Training Flow
+# 6. Annotation → Training Flow
 
 ```
 Raw PNG tiles  
@@ -166,7 +166,7 @@ Final detections
 
 ---
 
-7. Output Structure Summary
+# 7. Output Structure Summary
 
 | Folder             | Description                                   |
 | ------------------ | --------------------------------------------- |
@@ -178,7 +178,7 @@ Final detections
 
 ---
 
-8. Credits
+# 8. Credits
 
 This work was carried out as part of the GeoAI: Amazon Basin Secret Runway Detection project by PES University & Nokia (2025), documented fully in:
 Final report and Final PPT
